@@ -104,7 +104,12 @@ app.post("/submit-test", async (req, res) => {
         existingNote = {};
       }
 
-      if (existingNote.test_completed === true) {
+      const alreadyCompleted = existingNote.test_completed === true;
+      const hasSelectedCoachBefore = !!existingNote.selectedCoach;
+      const wantsToSaveSelectedCoach = !!selectedCoach;
+
+      // Test zaten kaydedildiyse ama seçilen koç yoksa, sadece selectedCoach güncellenebilsin
+      if (alreadyCompleted && !(wantsToSaveSelectedCoach && !hasSelectedCoachBefore)) {
         return res.status(400).json({
           success: false,
           message: "Bu testi zaten çözdünüz."
@@ -129,10 +134,18 @@ app.post("/submit-test", async (req, res) => {
 
       const updatedNote = {
         test_completed: true,
-        preferences: preferences || [],
-        answers: answers || {},
-        top3Coaches: top3Coaches || [],
-        selectedCoach: selectedCoach || null
+        preferences: alreadyCompleted
+          ? (existingNote.preferences || [])
+          : (preferences || []),
+        answers: alreadyCompleted
+          ? (existingNote.answers || {})
+          : (answers || {}),
+        top3Coaches: alreadyCompleted
+          ? (existingNote.top3Coaches || [])
+          : (top3Coaches || []),
+        selectedCoach: wantsToSaveSelectedCoach
+          ? selectedCoach
+          : (existingNote.selectedCoach || null)
       };
 
       const updateResult = await shopifyRequest(updateMutation, {
@@ -154,7 +167,9 @@ app.post("/submit-test", async (req, res) => {
 
       return res.json({
         success: true,
-        message: "Test sonucu mevcut müşteriye kaydedildi.",
+        message: alreadyCompleted
+          ? "Seçilen koç kaydedildi."
+          : "Test sonucu mevcut müşteriye kaydedildi.",
         customerId: existingCustomer.id
       });
     }
