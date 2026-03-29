@@ -51,6 +51,47 @@ app.get("/customers", async (req, res) => {
   }
 });
 
+app.get("/customer-by-email", async (req, res) => {
+  try {
+    const email = req.query.email;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "email zorunlu"
+      });
+    }
+
+    const query = `
+      query getCustomers($query: String!) {
+        customers(first: 1, query: $query) {
+          edges {
+            node {
+              id
+              firstName
+              lastName
+              email
+              phone
+              note
+            }
+          }
+        }
+      }
+    `;
+
+    const result = await shopifyRequest(query, {
+      query: `email:${email}`
+    });
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 app.post("/submit-test", async (req, res) => {
   try {
     const {
@@ -108,7 +149,6 @@ app.post("/submit-test", async (req, res) => {
       const hasSelectedCoachBefore = !!existingNote.selectedCoach;
       const wantsToSaveSelectedCoach = !!selectedCoach;
 
-      // Test zaten kaydedildiyse ama seçilen koç yoksa, sadece selectedCoach güncellenebilsin
       if (alreadyCompleted && !(wantsToSaveSelectedCoach && !hasSelectedCoachBefore)) {
         return res.status(400).json({
           success: false,
