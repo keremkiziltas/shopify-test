@@ -26,8 +26,7 @@ async function shopifyRequest(query, variables = {}) {
     body: JSON.stringify({ query, variables })
   });
 
-  const data = await response.json();
-  return data;
+  return response.json();
 }
 
 app.get("/", (req, res) => {
@@ -46,7 +45,18 @@ app.get("/customers", async (req, res) => {
               lastName
               email
               phone
-              note
+              testTamamlandi: metafield(namespace: "custom", key: "test_tamamlandi") {
+                value
+              }
+              secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
+                value
+              }
+              top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
+                value
+              }
+              testCevaplari: metafield(namespace: "custom", key: "test_cevaplari") {
+                value
+              }
             }
           }
         }
@@ -81,7 +91,18 @@ app.get("/customer-by-email", async (req, res) => {
               lastName
               email
               phone
-              note
+              testTamamlandi: metafield(namespace: "custom", key: "test_tamamlandi") {
+                value
+              }
+              secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
+                value
+              }
+              top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
+                value
+              }
+              testCevaplari: metafield(namespace: "custom", key: "test_cevaplari") {
+                value
+              }
             }
           }
         }
@@ -129,7 +150,18 @@ app.post("/submit-test", async (req, res) => {
               email
               firstName
               lastName
-              note
+              testTamamlandi: metafield(namespace: "custom", key: "test_tamamlandi") {
+                value
+              }
+              secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
+                value
+              }
+              top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
+                value
+              }
+              testCevaplari: metafield(namespace: "custom", key: "test_cevaplari") {
+                value
+              }
             }
           }
         }
@@ -143,35 +175,15 @@ app.post("/submit-test", async (req, res) => {
     const existingCustomer =
       searchResult?.data?.customers?.edges?.[0]?.node || null;
 
-    if (existingCustomer) {
-      let existingNote = {};
+    let customerId = existingCustomer?.id || null;
 
-      try {
-        existingNote = existingCustomer.note
-          ? JSON.parse(existingCustomer.note)
-          : {};
-      } catch {
-        existingNote = {};
-      }
-
-      const alreadyCompleted = existingNote.test_completed === true;
-      const hasSelectedCoachBefore = !!existingNote.selectedCoach;
-      const wantsToSaveSelectedCoach = !!selectedCoach;
-
-      if (alreadyCompleted && !(wantsToSaveSelectedCoach && !hasSelectedCoachBefore)) {
-        return res.status(400).json({
-          success: false,
-          message: "Bu testi zaten çözdünüz."
-        });
-      }
-
-      const updateMutation = `
-        mutation updateCustomer($input: CustomerInput!) {
-          customerUpdate(input: $input) {
+    if (!customerId) {
+      const createMutation = `
+        mutation createCustomer($input: CustomerInput!) {
+          customerCreate(input: $input) {
             customer {
               id
               email
-              note
             }
             userErrors {
               field
@@ -181,95 +193,132 @@ app.post("/submit-test", async (req, res) => {
         }
       `;
 
-      const updatedNote = {
-        test_completed: true,
-        preferences: alreadyCompleted
-          ? (existingNote.preferences || [])
-          : (preferences || []),
-        answers: alreadyCompleted
-          ? (existingNote.answers || {})
-          : (answers || {}),
-        top3Coaches: alreadyCompleted
-          ? (existingNote.top3Coaches || [])
-          : (top3Coaches || []),
-        selectedCoach: wantsToSaveSelectedCoach
-          ? selectedCoach
-          : (existingNote.selectedCoach || null)
-      };
-
-      const updateResult = await shopifyRequest(updateMutation, {
+      const createResult = await shopifyRequest(createMutation, {
         input: {
-          id: existingCustomer.id,
-          note: JSON.stringify(updatedNote)
+          email,
+          firstName: firstName || "",
+          lastName: lastName || ""
         }
       });
 
-      const userErrors = updateResult?.data?.customerUpdate?.userErrors || [];
+      const createErrors = createResult?.data?.customerCreate?.userErrors || [];
 
-      if (userErrors.length > 0) {
+      if (createErrors.length > 0) {
         return res.status(400).json({
           success: false,
-          message: "Müşteri güncellenemedi.",
-          userErrors
+          message: "Müşteri oluşturulamadı.",
+          userErrors: createErrors
         });
       }
 
-      return res.json({
-        success: true,
-        message: alreadyCompleted
-          ? "Seçilen koç kaydedildi."
-          : "Test sonucu mevcut müşteriye kaydedildi.",
-        customerId: existingCustomer.id
+      customerId = createResult?.data?.customerCreate?.customer?.id || null;
+
+      if (!customerId) {
+        return res.status(500).json({
+          success: false,
+          message: "Müşteri ID alınamadı."
+        });
+      }
+    }
+
+    const isCompleted = existingCustomer?.testTamamlandi?.value === "true";
+    const hasSelectedCoachBefore = !!existingCustomer?.secilenKoc?.value;
+    const wantsToSaveSelectedCoach = !!selectedCoach;
+
+    if (isCompleted && !(wantsToSaveSelectedCoach && !hasSelectedCoachBefore)) {
+      return res.status(400).json({
+        success: false,
+        message: "Bu testi zaten çözdünüz."
       });
     }
 
-    const createMutation = `
-      mutation createCustomer($input: CustomerInput!) {
-        customerCreate(input: $input) {
-          customer {
-            id
-            email
-            note
+    const metafields = [];
+
+    if (!isCompleted) {
+      metafields.push(
+        {
+          ownerId: customerId,
+          namespace: "custom",
+          key: "test_tamamlandi",
+          type: "boolean",
+          value: "true"
+        },
+        {
+          ownerId: customerId,
+          namespace: "custom",
+          key: "top_3_koc",
+          type: "json",
+          value: JSON.stringify(top3Coaches || [])
+        },
+        {
+          ownerId: customerId,
+          namespace: "custom",
+          key: "test_cevaplari",
+          type: "json",
+          value: JSON.stringify({
+            preferences: preferences || [],
+            answers: answers || {}
+          })
+        }
+      );
+    }
+
+    if (wantsToSaveSelectedCoach) {
+      metafields.push({
+        ownerId: customerId,
+        namespace: "custom",
+        key: "secilen_koc",
+        type: "single_line_text_field",
+        value: selectedCoach
+      });
+    }
+
+    if (metafields.length === 0) {
+      return res.json({
+        success: true,
+        message: "Güncellenecek veri yok.",
+        customerId
+      });
+    }
+
+    const metafieldsSetMutation = `
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          metafields {
+            key
+            namespace
+            value
           }
           userErrors {
             field
             message
+            code
           }
         }
       }
     `;
 
-    const noteData = {
-      test_completed: true,
-      preferences: preferences || [],
-      answers: answers || {},
-      top3Coaches: top3Coaches || [],
-      selectedCoach: selectedCoach || null
-    };
-
-    const createResult = await shopifyRequest(createMutation, {
-      input: {
-        email,
-        firstName: firstName || "",
-        lastName: lastName || "",
-        note: JSON.stringify(noteData)
-      }
+    const metafieldsResult = await shopifyRequest(metafieldsSetMutation, {
+      metafields
     });
 
-    const createErrors = createResult?.data?.customerCreate?.userErrors || [];
+    const metafieldErrors =
+      metafieldsResult?.data?.metafieldsSet?.userErrors || [];
 
-    if (createErrors.length > 0) {
+    if (metafieldErrors.length > 0) {
       return res.status(400).json({
         success: false,
-        message: "Müşteri oluşturulamadı.",
-        userErrors: createErrors
+        message: "Metafield kaydedilemedi.",
+        userErrors: metafieldErrors
       });
     }
 
     return res.json({
       success: true,
-      message: "Test sonucu yeni müşteriye kaydedildi.",
-      customerId: createResult?.data?.customerCreate?.customer?.id || null
+      message: isCompleted
+        ? "Seçilen koç kaydedildi."
+        : "Test sonucu kaydedildi.",
+      customerId
     });
   } catch (error) {
     res.status(500).json({
