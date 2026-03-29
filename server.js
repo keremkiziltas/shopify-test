@@ -5,10 +5,7 @@ const app = express();
 app.use(express.json());
 
 const SHOP = process.env.SHOPIFY_STORE;
-const TOKEN = process.env.SHOPIFY_ACCESS_TOKEN
-console.log("CWD:", process.cwd());
-console.log("SHOP:", process.env.SHOPIFY_STORE);
-console.log("TOKEN VAR MI:", !!process.env.SHOPIFY_ACCESS_TOKEN);
+const TOKEN = process.env.SHOPIFY_ACCESS_TOKEN;
 
 async function shopifyRequest(query, variables = {}) {
   const response = await fetch(`https://${SHOP}/admin/api/2026-01/graphql.json`, {
@@ -23,6 +20,10 @@ async function shopifyRequest(query, variables = {}) {
   const data = await response.json();
   return data;
 }
+
+app.get("/", (req, res) => {
+  res.send("API çalışıyor");
+});
 
 app.get("/customers", async (req, res) => {
   try {
@@ -52,7 +53,15 @@ app.get("/customers", async (req, res) => {
 
 app.post("/submit-test", async (req, res) => {
   try {
-    const { email, firstName, lastName, preferences, answers } = req.body;
+    const {
+      email,
+      firstName,
+      lastName,
+      preferences,
+      answers,
+      top3Coaches,
+      selectedCoach
+    } = req.body;
 
     if (!email) {
       return res.status(400).json({
@@ -121,7 +130,9 @@ app.post("/submit-test", async (req, res) => {
       const updatedNote = {
         test_completed: true,
         preferences: preferences || [],
-        answers: answers || {}
+        answers: answers || {},
+        top3Coaches: top3Coaches || [],
+        selectedCoach: selectedCoach || null
       };
 
       const updateResult = await shopifyRequest(updateMutation, {
@@ -167,7 +178,9 @@ app.post("/submit-test", async (req, res) => {
     const noteData = {
       test_completed: true,
       preferences: preferences || [],
-      answers: answers || {}
+      answers: answers || {},
+      top3Coaches: top3Coaches || [],
+      selectedCoach: selectedCoach || null
     };
 
     const createResult = await shopifyRequest(createMutation, {
