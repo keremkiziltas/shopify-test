@@ -51,6 +51,9 @@ app.get("/customers", async (req, res) => {
               secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
                 value
               }
+              secilenKocFotografi: metafield(namespace: "custom", key: "secilen_koc_fotografi") {
+                value
+              }
               top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
                 value
               }
@@ -97,6 +100,9 @@ app.get("/customer-by-email", async (req, res) => {
               secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
                 value
               }
+              secilenKocFotografi: metafield(namespace: "custom", key: "secilen_koc_fotografi") {
+                value
+              }
               top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
                 value
               }
@@ -131,7 +137,8 @@ app.post("/submit-test", async (req, res) => {
       preferences,
       answers,
       top3Coaches,
-      selectedCoach
+      selectedCoach,
+      selectedCoachImage
     } = req.body;
 
     if (!email) {
@@ -154,6 +161,9 @@ app.post("/submit-test", async (req, res) => {
                 value
               }
               secilenKoc: metafield(namespace: "custom", key: "secilen_koc") {
+                value
+              }
+              secilenKocFotografi: metafield(namespace: "custom", key: "secilen_koc_fotografi") {
                 value
               }
               top3Koc: metafield(namespace: "custom", key: "top_3_koc") {
@@ -271,6 +281,16 @@ app.post("/submit-test", async (req, res) => {
         type: "single_line_text_field",
         value: selectedCoach
       });
+
+      if (selectedCoachImage) {
+        metafields.push({
+          ownerId: customerId,
+          namespace: "custom",
+          key: "secilen_koc_fotografi",
+          type: "single_line_text_field",
+          value: selectedCoachImage
+        });
+      }
     }
 
     if (metafields.length === 0) {
