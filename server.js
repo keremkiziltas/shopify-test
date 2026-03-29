@@ -233,9 +233,16 @@ app.post("/submit-test", async (req, res) => {
 
     const isCompleted = existingCustomer?.testTamamlandi?.value === "true";
     const hasSelectedCoachBefore = !!existingCustomer?.secilenKoc?.value;
-    const wantsToSaveSelectedCoach = !!selectedCoach;
+    const hasSelectedCoachImageBefore = !!existingCustomer?.secilenKocFotografi?.value;
 
-    if (isCompleted && !(wantsToSaveSelectedCoach && !hasSelectedCoachBefore)) {
+    const wantsToSaveSelectedCoach = !!selectedCoach;
+    const wantsToSaveSelectedCoachImage = !!selectedCoachImage;
+
+    const canSaveCoachFirstTime = wantsToSaveSelectedCoach && !hasSelectedCoachBefore;
+    const canSaveMissingCoachImage =
+      wantsToSaveSelectedCoachImage && !hasSelectedCoachImageBefore;
+
+    if (isCompleted && !(canSaveCoachFirstTime || canSaveMissingCoachImage)) {
       return res.status(400).json({
         success: false,
         message: "Bu testi zaten çözdünüz."
@@ -273,7 +280,7 @@ app.post("/submit-test", async (req, res) => {
       );
     }
 
-    if (wantsToSaveSelectedCoach) {
+    if (wantsToSaveSelectedCoach && !hasSelectedCoachBefore) {
       metafields.push({
         ownerId: customerId,
         namespace: "custom",
@@ -281,16 +288,16 @@ app.post("/submit-test", async (req, res) => {
         type: "single_line_text_field",
         value: selectedCoach
       });
+    }
 
-      if (selectedCoachImage) {
-        metafields.push({
-          ownerId: customerId,
-          namespace: "custom",
-          key: "secilen_koc_fotografi",
-          type: "single_line_text_field",
-          value: selectedCoachImage
-        });
-      }
+    if (wantsToSaveSelectedCoachImage && !hasSelectedCoachImageBefore) {
+      metafields.push({
+        ownerId: customerId,
+        namespace: "custom",
+        key: "secilen_koc_fotografi",
+        type: "single_line_text_field",
+        value: selectedCoachImage
+      });
     }
 
     if (metafields.length === 0) {
@@ -336,7 +343,7 @@ app.post("/submit-test", async (req, res) => {
     return res.json({
       success: true,
       message: isCompleted
-        ? "Seçilen koç kaydedildi."
+        ? "Eksik bilgiler güncellendi."
         : "Test sonucu kaydedildi.",
       customerId
     });
