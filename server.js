@@ -1,7 +1,16 @@
 require("dotenv").config({ path: "./.env" });
 
 const express = require("express");
+const cors = require("cors");
+
 const app = express();
+
+app.use(cors({
+  origin: ["https://rivakocluk.com", "https://www.rivakocluk.com"],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"]
+}));
+
 app.use(express.json());
 
 const SHOP = process.env.SHOPIFY_STORE;
